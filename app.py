@@ -60,8 +60,20 @@ data.columns = data.columns.str.strip().str.replace(" ","_")
 # ----------------------------
 # Features
 # ----------------------------
-features = ["Attendance","Sleep_Hours","Study_Hours","Previous_Scores","Physical_Activity"]
-features = [f for f in features if f in data.columns]
+# ----------------------------
+# Features (Safe Selection)
+# ----------------------------
+
+possible_features = [
+    "Attendance",
+    "Sleep_Hours",
+    "Hours_Studied",
+    "Previous_Scores",
+    "Physical_Activity"
+]
+
+# Only keep columns that exist in dataset
+features = [f for f in possible_features if f in data.columns]
 
 target = "Exam_Score"
 

@@ -2,128 +2,173 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 
-# --------------------------------
-# Page Setup
-# --------------------------------
-st.set_page_config(page_title="Student Performance Dashboard", layout="wide")
+# -----------------------------
+# Page Config
+# -----------------------------
+st.set_page_config(page_title="Student Performance AI", layout="wide")
 
-st.title("🎓 Student Performance Prediction")
-st.write("Predict exam score using study habits.")
+# -----------------------------
+# Custom Styling
+# -----------------------------
+st.markdown("""
+<style>
 
-# --------------------------------
-# Load Dataset
-# --------------------------------
+.main {
+background-color: #f5f7fb;
+}
+
+.big-title {
+font-size:40px !important;
+font-weight:bold;
+color:#2c3e50;
+}
+
+.card {
+padding:20px;
+border-radius:10px;
+background-color:white;
+box-shadow:0px 4px 12px rgba(0,0,0,0.1);
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# -----------------------------
+# Title Section
+# -----------------------------
+st.markdown('<p class="big-title">🎓 Student Performance AI Dashboard</p>', unsafe_allow_html=True)
+
+st.write("Predict exam scores based on study habits and lifestyle factors.")
+
+# -----------------------------
+# Load Data
+# -----------------------------
 data = pd.read_csv("StudentPerformanceFactors.csv")
 
-# Clean column names
 data.columns = data.columns.str.strip().str.replace(" ", "_")
 
-# Show columns (for debugging if needed)
-# st.write(data.columns)
+# -----------------------------
+# Features
+# -----------------------------
+features = ["Attendance","Sleep_Hours","Study_Hours","Previous_Scores","Physical_Activity"]
 
-# --------------------------------
-# Detect Available Features
-# --------------------------------
-possible_features = [
-    "Attendance",
-    "Sleep_Hours",
-    "Study_Hours",
-    "Previous_Scores",
-    "Physical_Activity"
-]
-
-features = [col for col in possible_features if col in data.columns]
+features = [f for f in features if f in data.columns]
 
 target = "Exam_Score"
 
-if target not in data.columns:
-    st.error("❌ 'Exam_Score' column not found in dataset.")
-    st.stop()
-
-# --------------------------------
+# -----------------------------
 # Train Model
-# --------------------------------
+# -----------------------------
 X = data[features]
 y = data[target]
 
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
+X, y, test_size=0.2, random_state=42
 )
 
 model = LinearRegression()
-
 model.fit(X_train, y_train)
 
 preds = model.predict(X_test)
 
 accuracy = r2_score(y_test, preds)
 
-st.sidebar.write(f"Model Accuracy: {accuracy:.2f}")
+# -----------------------------
+# Sidebar
+# -----------------------------
+st.sidebar.title("📊 Model Info")
 
-# --------------------------------
+st.sidebar.metric("Model Accuracy", f"{accuracy:.2f}")
+
+st.sidebar.write("Model Used: Linear Regression")
+
+# -----------------------------
 # Dataset Overview
-# --------------------------------
+# -----------------------------
 st.header("📊 Dataset Overview")
 
-col1, col2, col3 = st.columns(3)
+c1, c2, c3 = st.columns(3)
 
-col1.metric("Total Students", len(data))
-col2.metric("Average Score", round(data[target].mean(), 2))
-col3.metric("Highest Score", data[target].max())
+c1.metric("Total Students", len(data))
+c2.metric("Average Score", round(data[target].mean(),2))
+c3.metric("Highest Score", data[target].max())
 
-# --------------------------------
+# -----------------------------
 # Prediction Section
-# --------------------------------
+# -----------------------------
 st.header("🎯 Predict Exam Score")
 
-input_data = {}
+col1, col2 = st.columns(2)
 
-for feature in features:
-    input_data[feature] = st.slider(feature, 0, 100, 50)
+with col1:
+    attendance = st.slider("Attendance (%)",0,100,70)
+    sleep = st.slider("Sleep Hours",0,12,7)
+    study = st.slider("Study Hours",0,10,3)
 
-input_df = pd.DataFrame([input_data])
+with col2:
+    previous = st.slider("Previous Score",0,100,60)
+    activity = st.slider("Physical Activity",0,10,3)
 
-if st.button("Predict Score"):
+input_data = pd.DataFrame({
+"Attendance":[attendance],
+"Sleep_Hours":[sleep],
+"Study_Hours":[study],
+"Previous_Scores":[previous],
+"Physical_Activity":[activity]
+})
 
-    prediction = model.predict(input_df)
+# Prediction
+if st.button("🚀 Predict Score"):
 
-    st.success(f"Predicted Exam Score: {prediction[0]:.2f}")
+    score = model.predict(input_data)[0]
 
-# --------------------------------
-# Correlation Heatmap
-# --------------------------------
-st.header("📊 Correlation Heatmap")
+    st.success(f"Predicted Exam Score: **{score:.2f}**")
 
-numeric_data = data.select_dtypes(include="number")
+# -----------------------------
+# Charts
+# -----------------------------
+st.header("📊 Data Visualizations")
 
-corr = numeric_data.corr()
+col1, col2 = st.columns(2)
 
-fig, ax = plt.subplots(figsize=(10,6))
+# Heatmap
+with col1:
 
-sns.heatmap(corr, annot=True, cmap="coolwarm", ax=ax)
+    numeric_data = data.select_dtypes(include="number")
 
-st.pyplot(fig)
+    corr = numeric_data.corr()
 
-# --------------------------------
-# Score Distribution
-# --------------------------------
-st.header("📈 Exam Score Distribution")
+    fig, ax = plt.subplots(figsize=(6,4))
 
-fig2, ax2 = plt.subplots()
+    sns.heatmap(corr, cmap="coolwarm", annot=True, ax=ax)
 
-sns.histplot(data[target], bins=20, kde=True, ax=ax2)
+    st.pyplot(fig)
 
-st.pyplot(fig2)
+# Score distribution
+with col2:
 
-# --------------------------------
+    fig2, ax2 = plt.subplots()
+
+    sns.histplot(data[target], bins=20, kde=True, ax=ax2)
+
+    ax2.set_title("Exam Score Distribution")
+
+    st.pyplot(fig2)
+
+# -----------------------------
 # Dataset Viewer
-# --------------------------------
+# -----------------------------
 st.header("📂 Dataset")
 
 if st.checkbox("Show Dataset"):
     st.dataframe(data)
+
+# -----------------------------
+# Footer
+# -----------------------------
+st.markdown("---")
+st.write("Built using Python, Machine Learning and Streamlit")

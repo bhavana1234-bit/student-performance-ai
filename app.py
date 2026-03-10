@@ -4,56 +4,32 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 
 # --------------------------------
 # Page Setup
 # --------------------------------
-st.set_page_config(page_title="Student Performance AI Dashboard", layout="wide")
+st.set_page_config(page_title="Student Performance Dashboard", layout="wide")
 
-st.title("🎓 Student Performance Prediction Dashboard")
-st.write("Predict a student's exam score based on study habits and lifestyle factors.")
+st.title("🎓 Student Performance Prediction")
+st.write("Predict exam score using study habits.")
 
 # --------------------------------
 # Load Dataset
 # --------------------------------
 data = pd.read_csv("StudentPerformanceFactors.csv")
 
+# Clean column names
 data.columns = data.columns.str.strip().str.replace(" ", "_")
 
-# --------------------------------
-# Sidebar
-# --------------------------------
-st.sidebar.title("🎓 Student AI Dashboard")
-
-st.sidebar.info(
-"""
-This AI app predicts student exam scores based on key lifestyle factors.
-
-Features
-✔ ML Prediction  
-✔ Data Visualization  
-✔ Study Recommendations  
-"""
-)
-
-st.sidebar.write("Created by **Bhavana**")
+# Show columns (for debugging if needed)
+# st.write(data.columns)
 
 # --------------------------------
-# Encode text columns
+# Detect Available Features
 # --------------------------------
-encoder = LabelEncoder()
-
-for col in data.columns:
-    if data[col].dtype == "object":
-        data[col] = encoder.fit_transform(data[col])
-
-# --------------------------------
-# Selected Features (ONLY 5)
-# --------------------------------
-features = [
+possible_features = [
     "Attendance",
     "Sleep_Hours",
     "Study_Hours",
@@ -61,14 +37,20 @@ features = [
     "Physical_Activity"
 ]
 
+features = [col for col in possible_features if col in data.columns]
+
 target = "Exam_Score"
 
-X = data[features]
-y = data[target]
+if target not in data.columns:
+    st.error("❌ 'Exam_Score' column not found in dataset.")
+    st.stop()
 
 # --------------------------------
 # Train Model
 # --------------------------------
+X = data[features]
+y = data[target]
+
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
 )
@@ -91,64 +73,39 @@ st.header("📊 Dataset Overview")
 col1, col2, col3 = st.columns(3)
 
 col1.metric("Total Students", len(data))
-col2.metric("Average Score", round(data["Exam_Score"].mean(), 2))
-col3.metric("Highest Score", data["Exam_Score"].max())
+col2.metric("Average Score", round(data[target].mean(), 2))
+col3.metric("Highest Score", data[target].max())
 
 # --------------------------------
 # Prediction Section
 # --------------------------------
 st.header("🎯 Predict Exam Score")
 
-col1, col2 = st.columns(2)
+input_data = {}
 
-with col1:
-    attendance = st.slider("Attendance (%)", 0, 100, 75)
-    sleep = st.slider("Sleep Hours", 0, 12, 7)
-    study = st.slider("Study Hours", 0, 10, 3)
+for feature in features:
+    input_data[feature] = st.slider(feature, 0, 100, 50)
 
-with col2:
-    previous = st.slider("Previous Score", 0, 100, 60)
-    activity = st.slider("Physical Activity (hrs/week)", 0, 10, 3)
+input_df = pd.DataFrame([input_data])
 
-input_data = pd.DataFrame({
-    "Attendance": [attendance],
-    "Sleep_Hours": [sleep],
-    "Study_Hours": [study],
-    "Previous_Scores": [previous],
-    "Physical_Activity": [activity]
-})
-
-# --------------------------------
-# Prediction Button
-# --------------------------------
 if st.button("Predict Score"):
 
-    prediction = model.predict(input_data)
+    prediction = model.predict(input_df)
 
     st.success(f"Predicted Exam Score: {prediction[0]:.2f}")
 
 # --------------------------------
-# Heatmap
+# Correlation Heatmap
 # --------------------------------
 st.header("📊 Correlation Heatmap")
 
-numeric_data = data.select_dtypes(include=["number"])
+numeric_data = data.select_dtypes(include="number")
 
 corr = numeric_data.corr()
 
 fig, ax = plt.subplots(figsize=(10,6))
 
-sns.heatmap(
-    corr,
-    annot=True,
-    cmap="coolwarm",
-    fmt=".2f",
-    linewidths=0.5,
-    ax=ax
-)
-
-plt.xticks(rotation=45)
-plt.yticks(rotation=0)
+sns.heatmap(corr, annot=True, cmap="coolwarm", ax=ax)
 
 st.pyplot(fig)
 
@@ -159,28 +116,14 @@ st.header("📈 Exam Score Distribution")
 
 fig2, ax2 = plt.subplots()
 
-sns.histplot(data["Exam_Score"], bins=20, kde=True, ax=ax2)
+sns.histplot(data[target], bins=20, kde=True, ax=ax2)
 
 st.pyplot(fig2)
 
 # --------------------------------
 # Dataset Viewer
 # --------------------------------
-st.header("📂 Dataset Explorer")
+st.header("📂 Dataset")
 
 if st.checkbox("Show Dataset"):
     st.dataframe(data)
-
-# --------------------------------
-# Download Dataset
-# --------------------------------
-st.header("⬇ Download Dataset")
-
-csv = data.to_csv(index=False).encode("utf-8")
-
-st.download_button(
-    label="Download Dataset",
-    data=csv,
-    file_name="student_data.csv",
-    mime="text/csv"
-)
